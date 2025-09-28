@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> VIEWSTREAM</title>
-.    <!-- Load Tailwind CSS -->
+    <title>VIEWSTREAM</title>
+    <!-- Load Tailwind  -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
     <style>
@@ -48,7 +48,7 @@
                     </svg>
                 </button>
                 <div class="flex items-center space-x-2 text-sm text-gray-500">
-                    <div id="user-id-display" class="bg-gray-100 px-2 py-1 rounded-full truncate max-w-[100px] text-xs">Loading...</div>
+                    <div id="user-id-display" class="bg-gray-100 px-2 py-1 rounded-full truncate max-w-[100px] text-xs">Auth Check...</div>
                 </div>
             </div>
         </div>
@@ -67,7 +67,7 @@
             
             <div id="feed" class="space-y-6">
                 <!-- Posts will be rendered here -->
-                <p id="loading-message" class="text-center text-gray-500 mt-12">Loading feed...</p>
+                <p id="loading-message" class="text-center text-gray-500 mt-12">Connecting to database...</p>
             </div>
         </section>
 
@@ -176,7 +176,6 @@
 
         // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const apiKey = ""; // API Key for Gemini API
 
@@ -184,7 +183,19 @@
         let currentUserId = null;
         const COLLECTION_NAME = 'instagram_posts'; // Public collection for shared feed
         let allPostsCache = []; 
+        let firebaseConfig = null; // Initialize the parsed config object to null
 
+        // --- SAFE CONFIG PARSING ---
+        // Attempt to parse the raw environment string safely, catching errors if it's malformed JSON.
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } catch (e) {
+                console.error("FATAL ERROR: Failed to parse raw __firebase_config string as JSON. Raw value:", __firebase_config, "Error:", e);
+                // firebaseConfig remains null, which firebaseSetup will catch
+            }
+        }
+        
         // --- UTILITY FUNCTIONS ---
 
         /**
@@ -558,15 +569,33 @@
         async function firebaseSetup() {
             const submitButton = document.getElementById('submit-post-btn');
             const userIdDisplay = document.getElementById('user-id-display');
-            
+            const loadingMessage = document.getElementById('loading-message'); // Get loading message element
+
             if (submitButton) {
                 submitButton.disabled = true;
                 submitButton.textContent = 'Authenticating...';
             }
+            if (userIdDisplay) userIdDisplay.textContent = 'Auth Check...';
+            if (loadingMessage) loadingMessage.textContent = 'Connecting to database...';
 
+            // 1. Check if the configuration was successfully parsed
             if (!firebaseConfig) {
-                showMessage('Firebase config not found. Data persistence is disabled.', 'error');
+                const configErrorMsg = "Database Config Missing! Cannot Connect to Feed.";
+                
+                console.error("FATAL: Firebase Initialization Failed. The __firebase_config environment variable is missing or invalid JSON.");
+                
+                // Show a clear, persistent UI message in the feed area
+                if (loadingMessage) {
+                    loadingMessage.textContent = configErrorMsg;
+                    loadingMessage.classList.remove('hidden');
+                }
+
+                // Show a clear, temporary notification
+                showMessage(configErrorMsg, 'error');
+                
+                // Update the button state
                 if (submitButton) submitButton.textContent = 'DB Disabled';
+                
                 return;
             }
 
