@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Viewstream  Feed</title>
+    <title>SnapShot Feed</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
@@ -39,8 +39,7 @@
     <!-- Fixed Header -->
     <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10">
         <div class="max-w-xl mx-auto flex items-center justify-between p-3">
-            <h1 class="text-2xl font-black text-gray-800 tracking-tight">ViewStream
-                by pramrish <h1>
+            <h1 class="text-2xl font-black text-gray-800 tracking-tight">SnapShot</h1>
             <div class="flex space-x-4">
                 <button id="show-post-modal-btn" class="text-gray-700 hover:text-pink-600 transition duration-150">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -92,8 +91,9 @@
             <h2 class="text-2xl font-bold mb-4 text-gray-800">Create New Post</h2>
             <form id="post-form" class="space-y-4">
                 <div>
-                    <label for="image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL (Placeholder)</label>
-                    <input type="url" id="image-url" value="https://placehold.co/600x600/50bda1/ffffff?text=SnapShot" required class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring focus:ring-pink-500 focus:ring-opacity-50 p-2">
+                    <!-- UPDATED LABEL AND REMOVED DEFAULT VALUE -->
+                    <label for="image-url" class="block text-sm font-medium text-gray-700 mb-1">Content URL (Image or Video)</label>
+                    <input type="url" id="image-url" placeholder="Paste your image or video URL here..." required class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring focus:ring-pink-500 focus:ring-opacity-50 p-2">
                 </div>
 
                 <div>
@@ -149,6 +149,23 @@
         let currentUserId = null;
         const COLLECTION_NAME = 'instagram_posts'; // Public collection for shared feed
 
+        // --- DATA MODEL DEFINITION ---
+        /*
+         * This application uses a single public Firestore collection for the feed.
+         *
+         * COLLECTION PATH: /artifacts/{appId}/public/data/instagram_posts
+         *
+         * DOCUMENT (Post) STRUCTURE:
+         * {
+         * id: string (Document ID)
+         * userId: string (ID of the user who created the post)
+         * imageUrl: string (URL to the image or video content)
+         * caption: string (The text description of the post)
+         * likes: Array<string> (An array of userIds who have liked the post)
+         * timestamp: serverTimestamp() (Time the post was created, used for sorting)
+         * }
+        */
+
         // --- UTILITY FUNCTIONS ---
 
         /**
@@ -187,7 +204,7 @@
             feedElement.innerHTML = ''; // Clear previous posts
 
             // Sort posts by timestamp descending (newest first)
-            posts.sort((a, b) => (b.timestamp?.toMillis() || b.timestamp || 0) - (a.timestamp?.toMillis() || a.timestamp || 0));
+            posts.sort((a, b) => (b.timestamp?.toMillis() || b.timestamp || 0) - (a.timestamp?.toMillis() || b.timestamp || 0));
 
             posts.forEach(post => {
                 const isLiked = post.likes.includes(currentUserId);
@@ -254,12 +271,7 @@
             const postRef = doc(db, `/artifacts/${appId}/public/data/${COLLECTION_NAME}`, postId);
 
             try {
-                // Fetch the current post data to check if already liked
-                // This is a simplified approach. In a real app, we'd use transaction or check the snapshot data.
-                // Since we are using arrayUnion/arrayRemove, Firestore handles concurrent updates gracefully.
-
                 // Using arrayUnion/arrayRemove for atomic update
-                const action = (e) => e.currentTarget.classList.contains('text-red-500') ? arrayRemove(currentUserId) : arrayUnion(currentUserId);
                 const isLiked = document.querySelector(`.like-btn[data-post-id="${postId}"]`).classList.contains('text-red-500');
 
                 await updateDoc(postRef, {
@@ -405,7 +417,7 @@
             const caption = document.getElementById('caption').value.trim();
 
             if (!imageUrl || !caption) {
-                return showMessage('Image URL and Caption are required.');
+                return showMessage('Content URL and Caption are required.');
             }
 
             const submitButton = document.getElementById('submit-post-btn');
@@ -443,7 +455,8 @@
             const postModal = document.getElementById('post-modal');
             document.getElementById('show-post-modal-btn').addEventListener('click', () => {
                 postModal.classList.remove('hidden');
-                document.getElementById('image-url').value = 'https://placehold.co/600x600/50bda1/ffffff?text=SnapShot';
+                // Cleared image URL input for user to paste their own content
+                document.getElementById('image-url').value = '';
                 document.getElementById('caption').value = '';
                 document.getElementById('caption-prompt').value = '';
                 document.getElementById('caption-error').classList.add('hidden');
@@ -475,6 +488,3 @@
     </script>
 </body>
 </html>
-
-
-
