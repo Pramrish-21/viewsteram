@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnapShot Feed</title>
+    <title>VIEWSTREAM</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
@@ -39,7 +39,7 @@
     <!-- Fixed Header -->
     <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10">
         <div class="max-w-xl mx-auto flex items-center justify-between p-3">
-            <h1 class="text-2xl font-black text-gray-800 tracking-tight">SnapShot</h1>
+            <h1 class="text-2xl font-black text-gray-800 tracking-tight">ViewStream</h1>
             <div class="flex space-x-4">
                 <button id="show-post-modal-btn" class="text-gray-700 hover:text-pink-600 transition duration-150">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -55,6 +55,11 @@
 
     <!-- Main Content Feed -->
     <main class="feed-container mx-auto p-4 sm:p-6">
+        <!-- Search Bar -->
+        <div class="mb-6">
+            <input type="text" id="search-input" placeholder="Search captions or user IDs..." 
+                   class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring focus:ring-pink-500 focus:ring-opacity-50 p-3 text-lg">
+        </div>
         <div id="feed" class="space-y-6">
             <!-- Posts will be rendered here -->
             <p id="loading-message" class="text-center text-gray-500 mt-12">Loading feed...</p>
@@ -64,20 +69,20 @@
     <!-- Fixed Footer (Optional Navigation) -->
     <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-md z-10">
         <nav class="max-w-xl mx-auto flex justify-around p-3">
-            <!-- Home Icon -->
-            <button class="text-pink-600">
+            <!-- Home Icon (Resets all filters) -->
+            <button id="home-btn" class="text-pink-600 transition duration-150">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 fill-current" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" />
                 </svg>
             </button>
-            <!-- Search Icon (Placeholder) -->
+            <!-- Search Icon (Placeholder - now that input is above) -->
             <button class="text-gray-500 hover:text-gray-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
             </button>
-            <!-- Profile Icon (Placeholder) -->
-            <button class="text-gray-500 hover:text-gray-700">
+            <!-- Profile Icon (My Posts Filter Button) -->
+            <button id="profile-filter-btn" class="text-gray-500 hover:text-pink-600 transition duration-150">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -148,6 +153,8 @@
         let app, db, auth;
         let currentUserId = null;
         const COLLECTION_NAME = 'instagram_posts'; // Public collection for shared feed
+        let allPostsCache = []; 
+        let isMyPostsFilterActive = false; // NEW: Track if 'My Posts' filter is active
 
         // --- DATA MODEL DEFINITION ---
         /*
@@ -187,14 +194,23 @@
 
         /**
          * Renders the feed posts dynamically.
-         * @param {Array<Object>} posts The array of post objects from Firestore.
+         * NOTE: This function only handles DOM manipulation and expects a filtered/sorted array.
+         * @param {Array<Object>} posts The array of post objects to render.
          */
         function renderPosts(posts) {
             const feedElement = document.getElementById('feed');
             const loadingMessage = document.getElementById('loading-message');
+            const searchTerm = document.getElementById('search-input').value.trim();
 
             if (posts.length === 0) {
-                loadingMessage.textContent = 'No posts yet! Be the first to share.';
+                if (searchTerm) {
+                    loadingMessage.textContent = 'No posts found matching your search.';
+                } else if (isMyPostsFilterActive) {
+                    loadingMessage.textContent = 'You haven\'t created any posts yet.';
+                } 
+                else {
+                    loadingMessage.textContent = 'No posts yet! Be the first to share.';
+                }
                 loadingMessage.classList.remove('hidden');
                 feedElement.innerHTML = '';
                 return;
@@ -203,8 +219,7 @@
             loadingMessage.classList.add('hidden');
             feedElement.innerHTML = ''; // Clear previous posts
 
-            // Sort posts by timestamp descending (newest first)
-            posts.sort((a, b) => (b.timestamp?.toMillis() || b.timestamp || 0) - (a.timestamp?.toMillis() || b.timestamp || 0));
+            // Posts are already sorted/filtered before being passed here.
 
             posts.forEach(post => {
                 const isLiked = post.likes.includes(currentUserId);
@@ -262,6 +277,80 @@
         }
 
         /**
+         * Filters the cached posts based on the search input and renders them.
+         */
+        function displayFilteredPosts() {
+            const searchTerm = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
+            let filteredPosts = allPostsCache;
+
+            // 1. Apply Search Filter
+            if (searchTerm) {
+                filteredPosts = allPostsCache.filter(post => 
+                    post.caption.toLowerCase().includes(searchTerm) || 
+                    post.userId.toLowerCase().substring(0, 12).includes(searchTerm) 
+                );
+            }
+            
+            // 2. Apply My Posts Filter
+            if (isMyPostsFilterActive && currentUserId) {
+                // If search was also applied, filter the already searched posts
+                filteredPosts = filteredPosts.filter(post => post.userId === currentUserId);
+            }
+            
+            // Sort posts by timestamp descending (newest first)
+            filteredPosts.sort((a, b) => (b.timestamp?.toMillis() || b.timestamp || 0) - (a.timestamp?.toMillis() || b.timestamp || 0));
+
+            renderPosts(filteredPosts);
+        }
+
+        /**
+         * Toggles the filter to show only the current user's posts.
+         */
+        function toggleMyPostsFilter() {
+            const profileBtn = document.getElementById('profile-filter-btn');
+            const homeBtn = document.getElementById('home-btn');
+
+            // Toggle the state
+            isMyPostsFilterActive = !isMyPostsFilterActive;
+
+            // Update button styles and clear search
+            if (isMyPostsFilterActive) {
+                profileBtn.classList.replace('text-gray-500', 'text-pink-600');
+                homeBtn.classList.remove('text-pink-600');
+                homeBtn.classList.add('text-gray-500');
+            } else {
+                profileBtn.classList.replace('text-pink-600', 'text-gray-500');
+                homeBtn.classList.add('text-pink-600');
+                homeBtn.classList.remove('text-gray-500');
+            }
+
+            // Clear the search bar when changing the main filter state to keep things simple
+            document.getElementById('search-input').value = '';
+
+            displayFilteredPosts();
+        }
+
+        /**
+         * Resets all filters to show the full feed.
+         */
+        function resetFilter() {
+            if (isMyPostsFilterActive) {
+                isMyPostsFilterActive = false;
+                document.getElementById('profile-filter-btn').classList.replace('text-pink-600', 'text-gray-500');
+            }
+            
+            // Highlight the home button
+            document.getElementById('home-btn').classList.add('text-pink-600');
+            document.getElementById('home-btn').classList.remove('text-gray-500');
+            
+            // Clear search input
+            document.getElementById('search-input').value = '';
+            
+            displayFilteredPosts();
+        }
+
+
+        /**
          * Toggles the like status on a post.
          * @param {string} postId The ID of the post to like/unlike.
          */
@@ -284,7 +373,7 @@
         }
 
         /**
-         * Sets up the real-time listener for the posts collection.
+         * Sets up the real-time listener for the posts collection and updates the cache.
          */
         function listenForPosts() {
             if (!db) return;
@@ -293,11 +382,12 @@
             const q = query(postsCollectionRef);
 
             onSnapshot(q, (snapshot) => {
-                const posts = [];
+                const fetchedPosts = [];
                 snapshot.forEach((doc) => {
-                    posts.push({ id: doc.id, ...doc.data() });
+                    fetchedPosts.push({ id: doc.id, ...doc.data() });
                 });
-                renderPosts(posts);
+                allPostsCache = fetchedPosts; // Update the cache
+                displayFilteredPosts(); // Display the posts (applying filter if active)
             }, (error) => {
                 console.error("Error listening to Firestore:", error);
                 document.getElementById('loading-message').textContent = 'Error loading feed.';
@@ -473,6 +563,30 @@
 
             // Post Form Submission
             document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
+
+            // Search Input Listener: filters posts and resets the profile filter if active
+            const searchInput = document.getElementById('search-input');
+            if(searchInput) {
+                searchInput.addEventListener('input', () => {
+                     // If the user starts typing in search, reset the profile filter state
+                     if (isMyPostsFilterActive) {
+                         isMyPostsFilterActive = false;
+                         document.getElementById('profile-filter-btn').classList.replace('text-pink-600', 'text-gray-500');
+                     }
+                     // Ensure home button is still highlighted as the general feed is active
+                     document.getElementById('home-btn').classList.add('text-pink-600');
+                     document.getElementById('home-btn').classList.remove('text-gray-500');
+                     
+                     displayFilteredPosts();
+                });
+            }
+
+            // NEW: Profile Filter Button Listener
+            document.getElementById('profile-filter-btn')?.addEventListener('click', toggleMyPostsFilter);
+
+            // NEW: Home Button Listener (resets all filters)
+            document.getElementById('home-btn')?.addEventListener('click', resetFilter);
+
 
             // Caption Generation Button
             document.getElementById('generate-caption-btn').addEventListener('click', () => {
