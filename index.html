@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SnapShot Feed</title>
-    <!-- Load Tailwind CSS -->
+    <title> VIEWSTREAM</title>
+.    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Use Inter font -->
     <style>
@@ -40,7 +40,7 @@
     <!-- Fixed Header -->
     <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10">
         <div class="max-w-xl mx-auto flex items-center justify-between p-3">
-            <h1 class="text-2xl font-black text-gray-800 tracking-tight">SnapShot</h1>
+            <h1 class="text-2xl font-black text-gray-800 tracking-tight">ViewStream</h1>
             <div class="flex space-x-4">
                 <button id="show-post-modal-btn" class="text-gray-700 hover:text-pink-600 transition duration-150">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -169,9 +169,10 @@
 
     <!-- Firebase and App Logic -->
     <script type="module">
+        // Added setLogLevel to imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, updateDoc, onSnapshot, collection, query, arrayUnion, arrayRemove, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, updateDoc, onSnapshot, collection, query, arrayUnion, arrayRemove, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -440,7 +441,7 @@
                     likes: isLiked ? arrayRemove(currentUserId) : arrayUnion(currentUserId)
                 });
             } catch (error) {
-                console.error("Error toggling like:", error);
+                console.error("Firebase Error: Failed to toggle like:", error);
                 showMessage('Failed to update like status.');
             }
         }
@@ -477,7 +478,7 @@
                 }
 
             }, (error) => {
-                console.error("Error listening to Firestore:", error);
+                console.error("Firebase Error: onSnapshot failed:", error);
                 const loadingMessage = document.getElementById('loading-message');
                 if (loadingMessage) {
                     loadingMessage.textContent = 'Error loading feed.';
@@ -555,8 +556,17 @@
 
         // --- FIREBASE INITIALIZATION AND AUTHENTICATION ---
         async function firebaseSetup() {
+            const submitButton = document.getElementById('submit-post-btn');
+            const userIdDisplay = document.getElementById('user-id-display');
+            
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Authenticating...';
+            }
+
             if (!firebaseConfig) {
                 showMessage('Firebase config not found. Data persistence is disabled.', 'error');
+                if (submitButton) submitButton.textContent = 'DB Disabled';
                 return;
             }
 
@@ -564,31 +574,45 @@
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+                
+                // IMPORTANT: Enable debug logging for the Firestore SDK
+                setLogLevel('Debug');
+                console.log("Firebase debug logging is enabled. Check your console for detailed logs.");
 
                 // Set up authentication listener
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         currentUserId = user.uid;
-                        const userIdDisplay = document.getElementById('user-id-display');
                         if (userIdDisplay) {
                             userIdDisplay.textContent = `ID: ${currentUserId.substring(0, 8)}`;
+                        }
+                        if (submitButton) {
+                            submitButton.disabled = false; // ENABLE on successful auth
+                            submitButton.textContent = 'Share Post';
                         }
                         
                         listenForPosts(); // Start listening for data once auth is complete
                         resetFilter(); // Initial view is home feed
                     } else {
                         // Sign in if not authenticated
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            // Fallback to anonymous sign-in if token is missing
-                            await signInAnonymously(auth);
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                // Fallback to anonymous sign-in if token is missing
+                                await signInAnonymously(auth);
+                            }
+                        } catch (authError) {
+                            console.error("Firebase Auth Error: Failed to sign in:", authError);
+                            showMessage('Authentication failed. Check Firebase config/token.', 'error');
+                            if (submitButton) submitButton.textContent = 'Auth Failed'; // Show error status on button
                         }
                     }
                 });
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                showMessage('Failed to initialize the application.', 'error');
+                showMessage('Failed to initialize the application. Check Firebase config.', 'error');
+                if (submitButton) submitButton.textContent = 'Init Failed';
             }
         }
 
@@ -599,7 +623,8 @@
          */
         async function handlePostSubmit(e) {
             e.preventDefault();
-            if (!currentUserId || !db) return showMessage('System error: User not authenticated or database not ready.');
+            // This is the line that triggered the error, now largely prevented by button state management
+            if (!currentUserId || !db) return showMessage('System error: User not authenticated or database not ready. Please refresh if button is active.', 'error');
 
             const imageUrl = document.getElementById('image-url')?.value.trim();
             const caption = document.getElementById('caption')?.value.trim();
@@ -632,8 +657,8 @@
                 // The onSnapshot listener will automatically refresh the feed/profile grid
 
             } catch (error) {
-                console.error("Error adding document: ", error);
-                showMessage('Failed to share post. Try again.', 'error');
+                console.error("Firebase Error: Failed to share post (addDoc): ", error);
+                showMessage('Failed to share post. Check your security rules/console logs.', 'error');
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Share Post';
@@ -650,6 +675,13 @@
             const showPostBtn = document.getElementById('show-post-modal-btn');
             const closePostBtn = document.getElementById('close-post-modal-btn');
             const postForm = document.getElementById('post-form');
+            const submitButton = document.getElementById('submit-post-btn');
+
+            // Initial state control for the submit button
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Authenticating...';
+            }
 
             if (showPostBtn && postModal) {
                 showPostBtn.addEventListener('click', () => {
