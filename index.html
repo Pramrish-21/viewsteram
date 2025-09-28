@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapShot Feed</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .feed-container {
+            max-width: 640px;
+            margin-top: 56px; /* Offset for fixed header */
+            margin-bottom: 64px; /* Offset for fixed footer */
+        }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #aaa;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Fixed Header -->
+    <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10">
+        <div class="max-w-xl mx-auto flex items-center justify-between p-3">
+            <h1 class="text-2xl font-black text-gray-800 tracking-tight">SnapShot</h1>
+            <div class="flex space-x-4">
+                <button id="show-post-modal-btn" class="text-gray-700 hover:text-pink-600 transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                </button>
+                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                    <div id="user-id-display" class="bg-gray-100 px-2 py-1 rounded-full truncate max-w-[100px] text-xs">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Feed -->
+    <main class="feed-container mx-auto p-4 sm:p-6">
+        <div id="feed" class="space-y-6">
+            <!-- Posts will be rendered here -->
+            <p id="loading-message" class="text-center text-gray-500 mt-12">Loading feed...</p>
+        </div>
+    </main>
+
+    <!-- Fixed Footer (Optional Navigation) -->
+    <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-md z-10">
+        <nav class="max-w-xl mx-auto flex justify-around p-3">
+            <!-- Home Icon -->
+            <button class="text-pink-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 fill-current" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" />
+                </svg>
+            </button>
+            <!-- Search Icon (Placeholder) -->
+            <button class="text-gray-500 hover:text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </button>
+            <!-- Profile Icon (Placeholder) -->
+            <button class="text-gray-500 hover:text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+            </button>
+        </nav>
+    </footer>
+
+    <!-- Post Creation Modal -->
+    <div id="post-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden flex items-center justify-center p-4 z-20">
+        <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Create New Post</h2>
+            <form id="post-form" class="space-y-4">
+                <div>
+                    <label for="image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL (Placeholder)</label>
+                    <input type="url" id="image-url" value="https://placehold.co/600x600/50bda1/ffffff?text=SnapShot" required class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring focus:ring-pink-500 focus:ring-opacity-50 p-2">
+                </div>
+
+                <div>
+                    <label for="caption" class="block text-sm font-medium text-gray-700 mb-1">Caption</label>
+                    <textarea id="caption" rows="3" required class="w-full border-gray-300 rounded-lg shadow-sm focus:border-pink-500 focus:ring focus:ring-pink-500 focus:ring-opacity-50 p-2" placeholder="Tell us about your moment..."></textarea>
+                </div>
+
+                <!-- Caption Generation Feature -->
+                <div class="pt-2">
+                    <label for="caption-prompt" class="block text-sm font-medium text-gray-700 mb-1">Generate Caption Idea (AI)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="caption-prompt" placeholder="e.g., A golden retriever playing in the park" class="flex-grow border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 p-2">
+                        <button type="button" id="generate-caption-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center justify-center disabled:opacity-50">
+                            <span id="generate-caption-text">Generate</span>
+                            <svg id="generate-caption-spinner" class="animate-spin h-5 w-5 text-white ml-2 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="caption-error" class="text-red-500 text-sm mt-1 hidden"></p>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="close-post-modal-btn" class="text-gray-600 hover:text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">Cancel</button>
+                    <button type="submit" id="submit-post-btn" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-lg shadow-pink-200 disabled:opacity-50">
+                        Share Post
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Message Box for Alerts (Replaces alert()) -->
+    <div id="message-box" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 p-3 bg-red-600 text-white rounded-lg shadow-xl z-30 hidden transition duration-300">
+        <!-- Message content here -->
+    </div>
+
+
+    <!-- Firebase and App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, updateDoc, onSnapshot, collection, query, arrayUnion, arrayRemove, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const apiKey = ""; // API Key for Gemini API
+
+        let app, db, auth;
+        let currentUserId = null;
+        const COLLECTION_NAME = 'instagram_posts'; // Public collection for shared feed
+
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Shows a temporary message box instead of using alert().
+         * @param {string} message The message to display.
+         * @param {string} type 'success' or 'error'.
+         */
+        function showMessage(message, type = 'error') {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 p-3 text-white rounded-lg shadow-xl z-30 transition duration-300';
+            box.classList.add(type === 'success' ? 'bg-green-600' : 'bg-red-600');
+            box.classList.remove('hidden');
+
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * Renders the feed posts dynamically.
+         * @param {Array<Object>} posts The array of post objects from Firestore.
+         */
+        function renderPosts(posts) {
+            const feedElement = document.getElementById('feed');
+            const loadingMessage = document.getElementById('loading-message');
+
+            if (posts.length === 0) {
+                loadingMessage.textContent = 'No posts yet! Be the first to share.';
+                loadingMessage.classList.remove('hidden');
+                feedElement.innerHTML = '';
+                return;
+            }
+
+            loadingMessage.classList.add('hidden');
+            feedElement.innerHTML = ''; // Clear previous posts
+
+            // Sort posts by timestamp descending (newest first)
+            posts.sort((a, b) => (b.timestamp?.toMillis() || b.timestamp || 0) - (a.timestamp?.toMillis() || a.timestamp || 0));
+
+            posts.forEach(post => {
+                const isLiked = post.likes.includes(currentUserId);
+                const likeButtonClass = isLiked ? 'text-red-500 fill-current' : 'text-gray-500 hover:text-red-500';
+
+                const postHtml = `
+                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                        <!-- Post Header -->
+                        <div class="p-3 flex items-center space-x-3">
+                            <div class="h-8 w-8 bg-pink-400 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                ${post.userId.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">User: ${post.userId.substring(0, 12)}...</p>
+                                <p class="text-xs text-gray-500">${new Date(post.timestamp?.toMillis() || Date.now()).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+
+                        <!-- Post Image -->
+                        <div class="w-full aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                            <img src="${post.imageUrl}" alt="SnapShot Post" class="w-full h-full object-cover" 
+                                onerror="this.onerror=null;this.src='https://placehold.co/600x600/aaaaaa/ffffff?text=Image+Failed+to+Load';"
+                            >
+                        </div>
+
+                        <!-- Post Actions -->
+                        <div class="p-3 flex items-center space-x-4">
+                            <button data-post-id="${post.id}" class="like-btn transition duration-150 ${likeButtonClass}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="${isLiked ? 'currentColor' : 'none'}">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                            </button>
+                            <span class="text-md font-semibold text-gray-700">${post.likes.length} likes</span>
+                        </div>
+
+                        <!-- Post Caption -->
+                        <div class="p-3 pt-0">
+                            <p class="text-gray-700 leading-snug">
+                                <span class="font-semibold text-sm mr-1">${post.userId.substring(0, 8)}...</span>
+                                ${post.caption}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                feedElement.insertAdjacentHTML('beforeend', postHtml);
+            });
+
+            // Re-attach event listeners to the new like buttons
+            document.querySelectorAll('.like-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const postId = e.currentTarget.getAttribute('data-post-id');
+                    if (postId) toggleLike(postId);
+                });
+            });
+        }
+
+        /**
+         * Toggles the like status on a post.
+         * @param {string} postId The ID of the post to like/unlike.
+         */
+        async function toggleLike(postId) {
+            if (!currentUserId) return showMessage('User not authenticated. Cannot like post.');
+
+            const postRef = doc(db, `/artifacts/${appId}/public/data/${COLLECTION_NAME}`, postId);
+
+            try {
+                // Fetch the current post data to check if already liked
+                // This is a simplified approach. In a real app, we'd use transaction or check the snapshot data.
+                // Since we are using arrayUnion/arrayRemove, Firestore handles concurrent updates gracefully.
+
+                // Using arrayUnion/arrayRemove for atomic update
+                const action = (e) => e.currentTarget.classList.contains('text-red-500') ? arrayRemove(currentUserId) : arrayUnion(currentUserId);
+                const isLiked = document.querySelector(`.like-btn[data-post-id="${postId}"]`).classList.contains('text-red-500');
+
+                await updateDoc(postRef, {
+                    likes: isLiked ? arrayRemove(currentUserId) : arrayUnion(currentUserId)
+                });
+            } catch (error) {
+                console.error("Error toggling like:", error);
+                showMessage('Failed to update like status.');
+            }
+        }
+
+        /**
+         * Sets up the real-time listener for the posts collection.
+         */
+        function listenForPosts() {
+            if (!db) return;
+
+            const postsCollectionRef = collection(db, `/artifacts/${appId}/public/data/${COLLECTION_NAME}`);
+            const q = query(postsCollectionRef);
+
+            onSnapshot(q, (snapshot) => {
+                const posts = [];
+                snapshot.forEach((doc) => {
+                    posts.push({ id: doc.id, ...doc.data() });
+                });
+                renderPosts(posts);
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+                document.getElementById('loading-message').textContent = 'Error loading feed.';
+                showMessage('Failed to connect to the feed in real-time.', 'error');
+            });
+        }
+
+        /**
+         * Handles the API call to Gemini for caption generation with exponential backoff.
+         * @param {string} prompt The user prompt for the caption.
+         */
+        async function handleApiCall(prompt) {
+            const maxRetries = 5;
+            const captionTextarea = document.getElementById('caption');
+            const spinner = document.getElementById('generate-caption-spinner');
+            const buttonText = document.getElementById('generate-caption-text');
+            const button = document.getElementById('generate-caption-btn');
+            const errorElement = document.getElementById('caption-error');
+
+            spinner.classList.remove('hidden');
+            buttonText.textContent = 'Thinking...';
+            button.disabled = true;
+            errorElement.classList.add('hidden');
+
+            const systemPrompt = "Act as a creative social media copywriter. Write a short, engaging caption (under 15 words) for the user's image description. Only respond with the caption text.";
+            const userQuery = prompt;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            const delay = Math.pow(2, i) * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not generate caption.";
+                    captionTextarea.value = generatedText.trim();
+                    showMessage('Caption generated successfully!', 'success');
+                    break; // Success, exit loop
+
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    errorElement.textContent = 'Failed to generate caption. Please try again.';
+                    errorElement.classList.remove('hidden');
+                    if (i === maxRetries - 1) {
+                         showMessage('Failed to generate caption after multiple retries.', 'error');
+                    }
+                }
+            }
+
+            spinner.classList.add('hidden');
+            buttonText.textContent = 'Generate';
+            button.disabled = false;
+        }
+
+        // --- FIREBASE INITIALIZATION AND AUTHENTICATION ---
+        async function firebaseSetup() {
+            if (!firebaseConfig) {
+                showMessage('Firebase config not found. Data persistence is disabled.', 'error');
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Set up authentication listener
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        document.getElementById('user-id-display').textContent = `ID: ${currentUserId.substring(0, 8)}`;
+                        listenForPosts(); // Start listening for data once auth is complete
+                    } else {
+                        // Sign in if not authenticated
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            // Fallback to anonymous sign-in if token is missing
+                            await signInAnonymously(auth);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                showMessage('Failed to initialize the application.', 'error');
+            }
+        }
+
+        // --- EVENT HANDLERS ---
+
+        /**
+         * Handles the submission of a new post.
+         */
+        async function handlePostSubmit(e) {
+            e.preventDefault();
+            if (!currentUserId || !db) return showMessage('System error: User not authenticated or database not ready.');
+
+            const imageUrl = document.getElementById('image-url').value.trim();
+            const caption = document.getElementById('caption').value.trim();
+
+            if (!imageUrl || !caption) {
+                return showMessage('Image URL and Caption are required.');
+            }
+
+            const submitButton = document.getElementById('submit-post-btn');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Sharing...';
+
+            try {
+                await addDoc(collection(db, `/artifacts/${appId}/public/data/${COLLECTION_NAME}`), {
+                    userId: currentUserId,
+                    imageUrl: imageUrl,
+                    caption: caption,
+                    likes: [], // Initialize with an empty array of likes
+                    timestamp: serverTimestamp() // Use server timestamp
+                });
+
+                document.getElementById('post-form').reset();
+                document.getElementById('post-modal').classList.add('hidden');
+                showMessage('Post shared successfully!', 'success');
+
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showMessage('Failed to share post. Try again.', 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Share Post';
+            }
+        }
+
+        // --- MAIN APPLICATION SETUP ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup Firebase
+            firebaseSetup();
+
+            // Modal Controls
+            const postModal = document.getElementById('post-modal');
+            document.getElementById('show-post-modal-btn').addEventListener('click', () => {
+                postModal.classList.remove('hidden');
+                document.getElementById('image-url').value = 'https://placehold.co/600x600/50bda1/ffffff?text=SnapShot';
+                document.getElementById('caption').value = '';
+                document.getElementById('caption-prompt').value = '';
+                document.getElementById('caption-error').classList.add('hidden');
+            });
+            document.getElementById('close-post-modal-btn').addEventListener('click', () => {
+                postModal.classList.add('hidden');
+            });
+            // Close modal on click outside (simple implementation)
+            postModal.addEventListener('click', (e) => {
+                if (e.target === postModal) {
+                    postModal.classList.add('hidden');
+                }
+            });
+
+            // Post Form Submission
+            document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
+
+            // Caption Generation Button
+            document.getElementById('generate-caption-btn').addEventListener('click', () => {
+                const prompt = document.getElementById('caption-prompt').value.trim();
+                if (prompt) {
+                    handleApiCall(prompt);
+                } else {
+                    document.getElementById('caption-error').textContent = 'Please enter a description for the AI to generate a caption.';
+                    document.getElementById('caption-error').classList.remove('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
